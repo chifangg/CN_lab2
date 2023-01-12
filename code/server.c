@@ -8,6 +8,7 @@
 #include <time.h>
 #include <arpa/inet.h> 
 #include <sys/wait.h>
+#include <math.h>
 #include <pthread.h>
 #define TIMEOUT 100
 /*****************notice**********************
@@ -111,6 +112,9 @@ void* timeout_thread()
 // You should complete this function
 //==================================
 // Send file function, it call receive_thread function at the first time.
+
+
+
 int sendFile(FILE *fd)
 {	
     int filesize = ftell(fd);
@@ -142,26 +146,32 @@ int sendFile(FILE *fd)
 	//==========================
 	// Send video data to client
 	//==========================
-	if (sendto(sockfd, &filesize, sizeof(filesize), 0, (struct sockaddr *)&client_info, len) < 0) 
-	{
-		perror("sendto failed");
-		return 1;
-	}
-	clock_gettime(CLOCK_MONOTONIC, &start);
+	//snd_pkt.header.seq_num = seq_num;
+	//if (sendto(sockfd, &filesize, sizeof(filesize), 0, (struct sockaddr *)&client_info, len) < 0) 
+	//{
+		
+		//perror("sendto failed");
+		//return 1;
+	//}
+	
 	fseek(fd, 0, SEEK_SET);
     	while (total_bytes_sent < filesize) 
 	{
+		clock_t t, t2, tf;
 		num_bytes = fread(snd_pkt.data, 1, 1024, fd);
-		printf("%d\n", num_bytes);
+		//printf("%d\n", num_bytes);
 		snd_pkt.header.seq_num = seq_num;
-		
-		printf("%d %d %d %d\n", seq_num, total_bytes_sent, bytes_sent, filesize);
+		//printf("%d\n", seq_num);
+		//printf("%d %d %d %d\n", seq_num, total_bytes_sent, bytes_sent, filesize);
 		snd_pkt.header.isLast = (total_bytes_sent + bytes_sent) >= filesize ? 1 : 0;
-		printf("%d\n", snd_pkt.header.isLast);
+		//printf("%d\n", snd_pkt.header.isLast);
 		
 		
-
+		t = clock();
 		bytes_sent = sendto(sockfd, &snd_pkt, sizeof(snd_pkt), 0, (struct sockaddr *)&client_info, len);
+		
+		//clock_gettime(CLOCK_MONOTONIC, &start);
+		printf("Send %d byte\n", bytes_sent);
 		
 		if (bytes_sent < 0) 
 		{
@@ -169,28 +179,67 @@ int sendFile(FILE *fd)
 		    return 1;
 		    
         	}
-        	seq_num++;
-        	total_bytes_sent += bytes_sent;
+        	
 
 
 	
 		//======================================
 		// Checking timeout & Receive client ack
 		//======================================	
-		clock_gettime(CLOCK_MONOTONIC, &end);
-		if ((end.tv_sec - start.tv_sec) > TIMEOUT) 
+		
+		
+		
+		
+		
+		//int f;
+		
+		//printf ("Calculating...\n");
+		//f = frequency_of_primes (999999);
+		//printf ("The number of primes lower than 100,000 is: %d\n",f);
+		//
+		
+		
+		//printf ("It took me %ld milliseconds.\n",tf);
+		//return 0;
+		//last_ack = seq_num;
+		
+		int got = recvfrom(sockfd, &rcv_pkt, sizeof(rcv_pkt), 0, (struct sockaddr *)&client_info, &len);
+		t2 = clock();
+		tf = (t2-t) * 1000 / CLOCKS_PER_SEC;
+		if(tf < 100 && got > 0 && rcv_pkt.header.ack_num != 1000)
 		{
-			printf("Timeout, resending last packet\n");
-			fseek(fd, total_bytes_sent, SEEK_SET);
-			seq_num = last_ack;
-			clock_gettime(CLOCK_MONOTONIC, &start);
+			//printf ("It took me %ld milliseconds.\n",tf);
+			seq_num++;
+        		total_bytes_sent += bytes_sent;
+        		printf("Receive a packet ack_num = %d\n", rcv_pkt.header.ack_num);
 		}
-		recvfrom(sockfd, &rcv_pkt, sizeof(rcv_pkt), 0, (struct sockaddr *)&client_info, &len);
-		if (rcv_pkt.header.ack_num == seq_num) 
+		else if(rcv_pkt.header.ack_num == 1000)
 		{
-			last_ack = rcv_pkt.header.ack_num;
-			clock_gettime(CLOCK_MONOTONIC, &start);
+			printf("Timeout! Resend packet!\n");
+			//fseek(fd, total_bytes_sent, SEEK_SET);
+			//sendto(sockfd, &snd_pkt, sizeof(snd_pkt), 0, (struct sockaddr *)&client_info, len);
+		
 		}
+		got = 0;
+		
+		
+		
+		//clock_gettime(CLOCK_MONOTONIC, &end);
+		//while ((end.tv_sec - start.tv_sec) > TIMEOUT) 
+		//{
+		//	printf("Timeout, resending last packet\n");
+		//	fseek(fd, total_bytes_sent, SEEK_SET);
+		//	seq_num = last_ack;
+		//	clock_gettime(CLOCK_MONOTONIC, &start);
+		//}
+		
+		//if (rcv_pkt.header.ack_num == seq_num) 
+		//{
+		//	last_ack = rcv_pkt.header.ack_num;
+		//	clock_gettime(CLOCK_MONOTONIC, &start);
+		//}
+		
+		
     }
 
 	//=============================================
