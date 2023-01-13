@@ -84,8 +84,8 @@ int recvFile(FILE *fd)
 	
 	//FILE *fd;
 	fd = fopen(fileName, "wb");
-	printf("(%s@%d)", __FUNCTION__, __LINE__);
-	printf("___Receiving...\n");
+	//printf("(%s@%d)", __FUNCTION__, __LINE__);
+	printf("Receiving...\n");
 	//char buffer[123431];
 	int index=0;
 	int receive_packet=0;
@@ -99,10 +99,16 @@ int recvFile(FILE *fd)
 		//=======================
 		if(isLoss(0.5))
 		{
+			Udp_pkt buf;
 			//printf("(%s@%d)", __FUNCTION__, __LINE__);
 			printf("\tOops! Packet loss!\n");
+			recvfrom(sockfd, &buf, sizeof(Udp_pkt), 0, (struct sockaddr *) &client_info, &len);
+			usleep(300000);
+			buf.header.ack_num = 1000;
+			sendto(sockfd, &buf, sizeof(Udp_pkt), 0, (struct sockaddr *) &client_info, sizeof(client_info));
 			//break;
 		}
+		
 		//==============================================
 		// Actually receive packet and write into buffer
 		//==============================================
@@ -128,7 +134,7 @@ int recvFile(FILE *fd)
 		{
 			//printf("(%s@%d)", __FUNCTION__, __LINE__);
 		    printf("Error in recvfrom()");
-		    break;
+		    //break;
 		}
 		
 		
@@ -138,9 +144,10 @@ int recvFile(FILE *fd)
 		if(rcv_pkt.header.is_last == 1)
 		{
 		    printf("Client received finished\n");
+		    //nd_pkt.header.
 		    //fwrite(buffer, 1, index, fd);//set ack num of snd to seq of rcv
 		    fclose(fd);
-		    break;
+		    //break;
 		}
 
 
@@ -148,8 +155,9 @@ int recvFile(FILE *fd)
 		// Reply ack to server
 		//====================
 		snd_pkt.header.ack_num = rcv_pkt.header.seq_num;
+		//printf("%d ", snd_pkt.header.ack_num);
 		sendto(sockfd, &snd_pkt, sizeof(Udp_pkt), 0, (struct sockaddr *) &client_info, sizeof(client_info));
-		printf("(%s@%d)\n", __FUNCTION__, __LINE__);
+		//printf("(%s@%d)\n", __FUNCTION__, __LINE__);
 		
 		if(rcv_pkt.header.is_last == 1)
 			break;
@@ -276,4 +284,5 @@ int main(int argc, char *argv[])
     }
 
 }
+
 
